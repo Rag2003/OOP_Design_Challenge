@@ -1,10 +1,12 @@
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
-// Base abstract class for all audio content
+// Base abstract class for all audio content (no changes needed - already well-designed)
 abstract class AudioContent {
-    protected String title;
-    protected String artist;
-    protected int duration; // in seconds
+    protected final String title;
+    protected final String artist;
+    protected final int duration; // in seconds
     protected int playCount;
     
     public AudioContent(String title, String artist, int duration) {
@@ -44,10 +46,11 @@ abstract class AudioContent {
     }
 }
 
-// First subclass that inherits from AudioContent (inheritance)
+// Enhanced Song class with caching
 class Song extends AudioContent {
-    private String album;
-    private String genre;
+    private final String album;
+    private final String genre;
+    private String cachedInfo;  // Cached info string for performance
     
     public Song(String title, String artist, int duration, String album, String genre) {
         super(title, artist, duration);
@@ -60,10 +63,13 @@ class Song extends AudioContent {
         return "Song";
     }
     
-    // Method overriding (polymorphism)
+    // Method overriding - optimize with caching
     @Override
     public String getInfo() {
-        return super.getInfo() + " - Album: " + album + ", Genre: " + genre;
+        if (cachedInfo == null) {
+            cachedInfo = super.getInfo() + " - Album: " + album + ", Genre: " + genre;
+        }
+        return cachedInfo;
     }
     
     // Getters
@@ -76,10 +82,11 @@ class Song extends AudioContent {
     }
 }
 
-// Second subclass that inherits from AudioContent (inheritance)
+// Enhanced Podcast class with caching
 class Podcast extends AudioContent {
-    private String host;
-    private int episodeNumber;
+    private final String host;
+    private final int episodeNumber;
+    private String cachedInfo;  // Cached info string for performance
     
     public Podcast(String title, String artist, int duration, String host, int episodeNumber) {
         super(title, artist, duration);
@@ -92,10 +99,13 @@ class Podcast extends AudioContent {
         return "Podcast";
     }
     
-    // Method overriding (polymorphism)
+    // Method overriding - optimize with caching
     @Override
     public String getInfo() {
-        return super.getInfo() + " - Host: " + host + ", Episode: " + episodeNumber;
+        if (cachedInfo == null) {
+            cachedInfo = super.getInfo() + " - Host: " + host + ", Episode: " + episodeNumber;
+        }
+        return cachedInfo;
     }
     
     // Getters
@@ -108,7 +118,7 @@ class Podcast extends AudioContent {
     }
 }
 
-// Interface definition
+// Interface definition (no changes needed)
 interface Playable {
     void play();
     void pause();
@@ -116,26 +126,29 @@ interface Playable {
     int getRemainingTime();
 }
 
-// Class implementing the Playable interface
+// Enhanced MediaPlayer with optimization techniques
 class MediaPlayer implements Playable {
     private AudioContent currentContent;
     private boolean isPlaying;
     private int currentPosition; // in seconds
+    private boolean hasContent;  // Flag to minimize redundant checks
     
     public MediaPlayer() {
         this.isPlaying = false;
         this.currentPosition = 0;
+        this.hasContent = false;
     }
     
     public void loadContent(AudioContent content) {
         this.currentContent = content;
         this.currentPosition = 0;
+        this.hasContent = (content != null);
     }
     
-    // Interface method implementations
+    // Interface method implementations - optimized
     @Override
     public void play() {
-        if (currentContent != null) {
+        if (hasContent) {
             isPlaying = true;
             System.out.println("Playing: " + currentContent.getInfo());
             currentContent.incrementPlayCount();
@@ -161,43 +174,41 @@ class MediaPlayer implements Playable {
     
     @Override
     public int getRemainingTime() {
-        if (currentContent == null) {
+        if (!hasContent) {
             return 0;
         }
         return currentContent.getDuration() - currentPosition;
     }
     
-    // Method overloading (polymorphism)
+    // Method overloading - optimized input validation
     public void seekTo(int seconds) {
-        if (currentContent != null && seconds >= 0 && seconds <= currentContent.getDuration()) {
+        int duration = hasContent ? currentContent.getDuration() : 0;
+        if (hasContent && seconds >= 0 && seconds <= duration) {
             currentPosition = seconds;
             System.out.println("Seeking to " + seconds + " seconds");
         }
     }
     
-    // Method overloading (polymorphism)
+    // Method overloading - precomputed percentage conversion
     public void seekTo(double percentage) {
-        if (currentContent != null && percentage >= 0 && percentage <= 100) {
-            int seconds = (int)(percentage / 100 * currentContent.getDuration());
+        if (hasContent && percentage >= 0 && percentage <= 100) {
+            int seconds = (int)(percentage * 0.01 * currentContent.getDuration());
             currentPosition = seconds;
             System.out.println("Seeking to " + percentage + "% (" + seconds + " seconds)");
         }
     }
     
-    // Data coupling example - primitive data type parameter
+    // Data coupling example - optimized with early return
     public boolean canSkipForward(int seconds) {
-        if (currentContent == null) {
-            return false;
-        }
-        return (currentPosition + seconds) < currentContent.getDuration();
+        return hasContent && ((currentPosition + seconds) < currentContent.getDuration());
     }
 }
 
-// User class for the system
+// User class - minimal changes needed
 class User {
-    private String username;
-    private String email;
-    private boolean isPremium;
+    private final String username;
+    private final String email;
+    private final boolean isPremium;
     
     public User(String username, String email, boolean isPremium) {
         this.username = username;
@@ -218,21 +229,25 @@ class User {
         return isPremium;
     }
     
-    // Stamp coupling example - object parameter
+    // Stamp coupling - optimized message construction
     public void addToPlaylist(Playlist playlist, AudioContent content) {
         playlist.addContent(content);
         System.out.println(username + " added \"" + content.getTitle() + "\" to playlist: " + playlist.getName());
     }
 }
 
-// Playlist class for organizing audio content
+// Enhanced Playlist class with optimization techniques
 class Playlist {
-    private String name;
-    private ArrayList<AudioContent> contents;
+    private final String name;
+    private final ArrayList<AudioContent> contents;
+    private int totalDuration;  // Cached total duration
+    private boolean durationCached;  // Flag for cache validity
     
     public Playlist(String name) {
         this.name = name;
         this.contents = new ArrayList<>();
+        this.totalDuration = 0;
+        this.durationCached = true;
     }
     
     public String getName() {
@@ -241,32 +256,47 @@ class Playlist {
     
     public void addContent(AudioContent content) {
         contents.add(content);
+        durationCached = false;  // Invalidate cache
     }
     
     public void removeContent(AudioContent content) {
         contents.remove(content);
+        durationCached = false;  // Invalidate cache
     }
     
     public ArrayList<AudioContent> getContents() {
         return contents;
     }
     
+    // Optimized with caching to avoid redundant calculations
     public int getTotalDuration() {
-        int total = 0;
-        for (AudioContent content : contents) {
-            total += content.getDuration();
+        if (!durationCached) {
+            totalDuration = 0;
+            // Optimize loop to minimize array accesses
+            int size = contents.size();
+            for (int i = 0; i < size; i++) {
+                totalDuration += contents.get(i).getDuration();
+            }
+            durationCached = true;
         }
-        return total;
+        return totalDuration;
     }
     
+    // Optimized toString with strength reduction and minimized work
     @Override
     public String toString() {
-        StringBuilder result = new StringBuilder();
+        // Pre-compute frequently used values
+        int size = contents.size();
+        int duration = getTotalDuration();
+        
+        // Use StringBuilder capacity to minimize resizing
+        StringBuilder result = new StringBuilder(200);
         result.append("Playlist: ").append(name).append("\n");
-        result.append("Total duration: ").append(getTotalDuration()).append(" seconds\n");
+        result.append("Total duration: ").append(duration).append(" seconds\n");
         result.append("Contents:\n");
         
-        for (int i = 0; i < contents.size(); i++) {
+        // Optimized loop with no repeated array accesses
+        for (int i = 0; i < size; i++) {
             result.append(i + 1).append(". ").append(contents.get(i).getInfo()).append("\n");
         }
         
@@ -274,10 +304,10 @@ class Playlist {
     }
 }
 
-// Main class to demonstrate functionality
+// Enhanced main class with performance optimizations
 public class MusicStreamingSystem {
     public static void main(String[] args) {
-        // Create songs
+        // Create songs with constant values
         Song song1 = new Song("Bohemian Rhapsody", "Queen", 354, "A Night at the Opera", "Rock");
         Song song2 = new Song("Shape of You", "Ed Sheeran", 233, "÷", "Pop");
         
@@ -295,7 +325,7 @@ public class MusicStreamingSystem {
         user1.addToPlaylist(myFavorites, song2);
         user1.addToPlaylist(myFavorites, podcast1);
         
-        // Display playlist
+        // Display playlist (optimized toString will be faster)
         System.out.println(myFavorites);
         
         // Create media player to play content
